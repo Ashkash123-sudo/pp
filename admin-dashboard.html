@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Admin Dashboard | Panther Press</title>
+  <link rel="stylesheet" href="auth.css">
+  <link rel="stylesheet" href="styles-override.css">
+  <style>
+    body { font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif; background:#f6f7fb; color:#111; }
+    .dash-shell { max-width:1100px; margin:28px auto; padding:20px; }
+    .dash-header { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:18px; }
+    .brand { display:flex; gap:12px; align-items:center; }
+    .brand img { height:44px; }
+    .card { background:#fff; border-radius:10px; padding:18px; box-shadow:0 6px 20px rgba(0,0,0,0.06); margin-bottom:16px; }
+    .card h2 { margin:0 0 12px 0; font-size:18px; }
+    .row { display:flex; gap:12px; }
+    .col { flex:1; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th, td { text-align:left; padding:8px 6px; border-bottom:1px solid #eef1f6; }
+    button, .auth-button { padding:8px 10px; border-radius:8px; border:1px solid #d0d7e2; background:#fff; cursor:pointer; }
+    .primary { background:#0b5cff; color:#fff; border:none; }
+    .danger { background:#ff4d4f; color:#fff; border:none; }
+    input[type="text"], input[type="number"] { padding:8px 10px; border-radius:8px; border:1px solid #e1e4ea; }
+    .control-row { display:flex; gap:8px; align-items:center; }
+  </style>
+</head>
+<body>
+  <main class="dash-shell">
+    <header class="dash-header">
+      <div class="brand"><img src="thumbnail.png" alt="Panther Press"><div><strong>Panther Press</strong><div style="font-size:13px;color:#666">Admin Dashboard</div></div></div>
+      <div>
+        <button id="createGameBtn" class="primary">Create Game</button>
+        <button id="logoutBtn">Logout</button>
+      </div>
+    </header>
+
+    <section class="card row">
+      <div class="col">
+        <h2>Administrators</h2>
+        <div id="adminsList">Loading...</div>
+      </div>
+      <div class="col">
+        <h2>One-Time Registration Codes</h2>
+        <div class="control-row"><input id="genCount" type="number" min="1" max="50" value="1"><button id="genBtn" class="primary">Generate</button></div>
+        <div id="codesTableWrap"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Master Code</h2>
+      <p style="color:#555">Current master code can be rotated. The master code is intended only for initial administrator registration and may be limited in uses.</p>
+      <div class="control-row" style="margin-top:8px;"><input id="masterCodeInput" type="text" placeholder="Set new master code"><button id="saveMaster" class="primary">Save</button><button id="resetMasterUses">Reset Use Count</button><span id="masterMeta" style="margin-left:12px;color:#666"></span></div>
+    </section>
+
+    <section class="card">
+      <h2>Audit / Info</h2>
+      <p id="auditInfo">Loading...</p>
+    </section>
+  </main>
+
+  <script src="auth-utils.js"></script>
+  <script>
+    // Admin dashboard - requires admin session
+    if (!CFHSAuth || !CFHSAuth.isAdmin()) { alert('Administrator access required.'); window.location.href = 'admin-login.html'; }
+
+    function getOneTimeCodes() { return JSON.parse(localStorage.getItem('cfhs-one-time-codes') || '[]'); }
+    function saveOneTimeCodes(list) { localStorage.setItem('cfhs-one-time-codes', JSON.stringify(list)); }
+    function generateCode() { return 'ADM-' + Math.random().toString(36).substring(2,9).toUpperCase(); }
+
+    function renderAdmins() {
+      const admins = JSON.parse(localStorage.getItem('cfhs-admins') || '[]');
+      const users = JSON.parse(localStorage.getItem('cfhs-users') || '{}');
+      if (!admins.length) { document.getElementById('adminsList').innerHTML = '<p>No administrators registered.</p>'; return; }
+      const rows = admins.map(a => {
+        const u = users[a] || { email:a, role:'Admin' };
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0f3f7;"><div><strong>${u.email}</strong><div style="font-size:13px;color:#666">Role: ${u.role || 'Admin'}</div></div><div><button data-admin="${u.email}" class="revokeBtn danger">Revoke</button></div></div>`;
+      }).join('');
+      document.getElementById('adminsList').innerHTML = rows;
+      document.querySelectorAll('.revokeBtn').forEach(btn=> btn.addEventListener('click', (e)=>{
+        const email = e.currentTarget.getAttribute('data-admin');
+        if (!confirm(`Revoke admin access for ${email}?`)) return;
+        revokeAdmin(email);
+      }));
+    }
+
+    function revokeAdmin(email) {
+      const admins = JSON.parse(localStorage.getItem('cfhs-admins') || '[]');
+      const idx = admins.indexOf(email); if (idx !== -1) admins.splice(idx,1);
+      localStorage.setItem('cfhs-admins', JSON.stringify(admins));
+      // downgrade role in users
+      const users = JSON.parse(localStorage.getItem('cfhs-users') || '{}'); if (users[email]) users[email].role = 'User'; localStorage.setItem('cfhs-users', JSON.stringify(users));
+      renderAdmins();
+      alert('Admin access revoked.');
+    }
+
+    function renderCodesTable() {
+      const list = getOneTimeCodes();
+      const wrap = document.getElementById('codesTableWrap');
+      if (!list.length) { wrap.innerHTML = '<p>No one-time codes yet.</p>'; return; }
+      const rows = list.map(c => {
+        const status = c.revoked ? 'Revoked' : (c.used ? `Used by ${c.usedBy}` : 'Available');
+        const revokeBtn = c.revoked || c.used ? '' : `<button data-code="${c.code}" class="revokeCode">Revoke</button>`;
+        return `<tr><td style="width:220px">${c.code}</td><td>${c.createdBy}</td><td>${new Date(c.createdAt).toLocaleString()}</td><td>${status}</td><td>${revokeBtn}</td></tr>`;
+      }).join('');
+      wrap.innerHTML = `<table><thead><tr><th>Code</th><th>Created by</th><th>Created at</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+      wrap.querySelectorAll('.revokeCode').forEach(btn=> btn.addEventListener('click', (e)=>{
+        const code = e.currentTarget.getAttribute('data-code'); if(!confirm(`Revoke code ${code}?`)) return; revokeCode(code); alert('Code revoked.'); renderCodesTable();
+      }));
+    }
+
+    function createOneTimeCodes(count) {
+      const list = getOneTimeCodes();
+      const createdBy = JSON.parse(localStorage.getItem('cfhs-admin-session') || '{}').email || 'admin';
+      for (let i=0;i<count;i++) list.push({ code: generateCode(), id: generateCode(), createdBy, createdAt: new Date().toISOString(), used:false, usedBy:null, usedAt:null, revoked:false });
+      saveOneTimeCodes(list); renderCodesTable(); alert(`Created ${count} code(s).`);
+    }
+
+    function revokeCode(code) { const list = getOneTimeCodes(); const item = list.find(c=>c.code===code); if (item) item.revoked = true; saveOneTimeCodes(list); }
+
+    // Master code management
+    function getMasterCode() { return localStorage.getItem('cfhs-master-code') || 'CFHS-2026!'; }
+    function setMasterCode(code) { localStorage.setItem('cfhs-master-code', code); }
+    function getMasterUses() { return parseInt(localStorage.getItem('cfhs-master-uses') || '0',10); }
+    function setMasterUses(n){ localStorage.setItem('cfhs-master-uses', String(n)); }
+
+    document.getElementById('genBtn').addEventListener('click', ()=>{ const c = parseInt(document.getElementById('genCount').value||'1',10)||1; createOneTimeCodes(c); });
+    document.getElementById('saveMaster').addEventListener('click', ()=>{ const v=document.getElementById('masterCodeInput').value.trim(); if(!v) return alert('Enter non-empty code'); setMasterCode(v); setMasterUses(0); alert('Master code updated.'); updateMasterMeta(); });
+    document.getElementById('resetMasterUses').addEventListener('click', ()=>{ setMasterUses(0); updateMasterMeta(); alert('Master use count reset.'); });
+
+    document.getElementById('createGameBtn').addEventListener('click', ()=>{ window.location.href = 'create-game.html'; });
+    document.getElementById('logoutBtn').addEventListener('click', ()=>{ localStorage.removeItem('cfhs-admin-session'); localStorage.removeItem('cfhs-user-session'); window.location.href='auth.html'; });
+
+    function updateMasterMeta(){ document.getElementById('masterMeta').textContent = `Current master code: ${getMasterCode()} (uses: ${getMasterUses()})`; }
+
+    // Audit info
+    function updateAudit(){ const admins=JSON.parse(localStorage.getItem('cfhs-admins')||'[]'); const codes=getOneTimeCodes().length; const info=`Admins: ${admins.length} | One-time codes: ${codes}`; document.getElementById('auditInfo').textContent = info; }
+
+    // Init
+    renderAdmins(); renderCodesTable(); updateMasterMeta(); updateAudit();
+  </script>
+</body>
+</html>

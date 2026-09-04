@@ -1,0 +1,20 @@
+{
+  "name": "panther-press",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "build": "echo 'no build step'"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "better-sqlite3": "^8.4.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.0",
+    "dotenv": "^16.0.3"
+  }
+}
