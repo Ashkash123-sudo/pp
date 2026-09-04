@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>Admin Login | Panther Press</title>
+	<link rel="stylesheet" href="auth.css">
+	<link rel="stylesheet" href="styles-override.css">
+	<style>
+		/* Cleaner, less cramped admin login */
+		body { background:#f6f7fb; font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif; }
+		.admin-shell { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:24px; }
+		.admin-card { max-width:480px; width:100%; padding:28px; border-radius:10px; box-shadow:0 6px 20px rgba(0,0,0,0.08); background:#fff; }
+		.admin-card h1 { margin:0 0 8px 0; font-size:20px; color:#111; }
+		.admin-card p.lead { margin:0 0 16px 0; color:#444; font-size:14px; }
+		.admin-card label { display:block; margin-bottom:12px; font-size:13px; color:#333; }
+		.admin-card input { width:100%; padding:10px 12px; border:1px solid #e1e4ea; border-radius:8px; font-size:14px; box-sizing:border-box; }
+		.auth-footer { display:flex; justify-content:space-between; margin-top:14px; font-size:14px; }
+		.auth-button.primary { width:100%; margin-top:10px; padding:10px 12px; border-radius:8px; background:#0b5cff; color:#fff; border:none; cursor:pointer; font-weight:600; }
+		.brand { display:flex; gap:12px; align-items:center; margin-bottom:18px; }
+		.brand img { height:40px; }
+		.message { color:#b00020; margin-top:8px; }
+		a { color:#0b5cff; text-decoration:none; }
+	</style>
+</head>
+<body>
+	<main class="admin-shell">
+		<section class="admin-card" role="main" aria-labelledby="adminHeading">
+			<div class="brand"><img src="thumbnail.png" alt="Panther Press logo"><strong>PANTHER PRESS</strong></div>
+			<h1 id="adminHeading">Admin Login</h1>
+			<p class="lead">Administrator access only. New admin registration requires a valid administrator access code (one-time invite or initial master code).</p>
+
+			<form id="adminLoginForm" aria-describedby="adminMessage">
+				<label for="adminEmail">Admin Email/Username
+					<input id="adminEmail" name="adminEmail" type="email" required placeholder="admin@example.com" autocomplete="username">
+				</label>
+				<label for="adminPassword">Admin Password
+					<input id="adminPassword" name="adminPassword" type="password" minlength="8" required placeholder="Enter your password" autocomplete="current-password">
+				</label>
+				<label for="adminCode">Admin Access Code
+					<input id="adminCode" name="adminCode" type="text" placeholder="Optional: registration code for new admins">
+				</label>
+				<button class="auth-button primary" type="submit">Login</button>
+			</form>
+
+			<p id="adminMessage" class="message" role="status" aria-live="polite"></p>
+
+			<div class="auth-footer">
+				<a href="auth.html">Back to Login / Sign up</a>
+				<a href="index.html">Continue as Guest</a>
+			</div>
+		</section>
+	</main>
+
+	<script>
+		// Clean admin login behavior
+		const DEFAULT_MASTER_CODE = 'CFHS-2026!';
+		const MASTER_USE_LIMIT = 2;
+
+		function getMasterCode() { return localStorage.getItem('cfhs-master-code') || DEFAULT_MASTER_CODE; }
+		function getMasterUses() { return parseInt(localStorage.getItem('cfhs-master-uses') || '0', 10); }
+		function incrementMasterUses() { localStorage.setItem('cfhs-master-uses', String(getMasterUses() + 1)); }
+
+		function getOneTimeCodes() { return JSON.parse(localStorage.getItem('cfhs-one-time-codes') || '[]'); }
+		function saveOneTimeCodes(list) { localStorage.setItem('cfhs-one-time-codes', JSON.stringify(list)); }
+		function findOneTimeCode(code) { return getOneTimeCodes().find(c => c.code === code); }
+		function markOneTimeCodeUsed(code, email) {
+			const list = getOneTimeCodes();
+			const item = list.find(c => c.code === code && !c.revoked && !c.used);
+			if (!item) return false;
+			item.used = true; item.usedBy = email; item.usedAt = new Date().toISOString();
+			saveOneTimeCodes(list); return true;
+		}
+
+		function createAdminAccount(email, password) {
+			const users = JSON.parse(localStorage.getItem('cfhs-users') || '{}');
+			users[email] = { email, password, role: 'Admin' };
+			localStorage.setItem('cfhs-users', JSON.stringify(users));
+			const admins = JSON.parse(localStorage.getItem('cfhs-admins') || '[]'); if (!admins.includes(email)) admins.push(email);
+			localStorage.setItem('cfhs-admins', JSON.stringify(admins));
+			localStorage.setItem('cfhs-user-session', JSON.stringify({ email, role: 'Admin' }));
+			localStorage.setItem('cfhs-admin-session', JSON.stringify({ email, role: 'Athletic Admin' }));
+		}
+
+		document.getElementById('adminLoginForm').addEventListener('submit', (e) => {
+			e.preventDefault();
+			const email = (document.getElementById('adminEmail').value || '').trim().toLowerCase();
+			const password = document.getElementById('adminPassword').value || '';
+			const code = (document.getElementById('adminCode').value || '').trim();
+			const msg = document.getElementById('adminMessage'); msg.textContent = '';
+
+			if (!email || !password) { msg.textContent = 'Please enter email and password.'; return; }
+
+			const users = JSON.parse(localStorage.getItem('cfhs-users') || '{}');
+			const existing = users[email];
+
+			// Existing admin -> login
+			if (existing && existing.role === 'Admin') {
+					if (existing.password === password) {
+					localStorage.setItem('cfhs-user-session', JSON.stringify({ email, role: 'Admin' }));
+					localStorage.setItem('cfhs-admin-session', JSON.stringify({ email, role: 'Athletic Admin' }));
+					// After login, redirect to the normal site homepage. ADMIN tab will appear in the navigation for admins.
+					window.location.href = 'index.html';
+					return;
+				} else { msg.textContent = 'Invalid password.'; return; }
+			}
+
+			// Not an existing admin: registration requires code
+			if (!code) { msg.textContent = 'Account not found. To register as an administrator, provide a valid admin access code.'; return; }
+
+			// Master code check
+			if (code === getMasterCode() && getMasterUses() < MASTER_USE_LIMIT) {
+				incrementMasterUses(); createAdminAccount(email, password); window.location.href = 'index.html'; return;
+			}
+
+			// One-time code check
+			const otc = findOneTimeCode(code);
+			if (otc && !otc.revoked && !otc.used) {
+				markOneTimeCodeUsed(code, email); createAdminAccount(email, password); window.location.href = 'index.html'; return;
+			}
+
+			msg.textContent = 'Invalid or already-used admin access code.';
+		});
+	</script>
+</body>
+</html>

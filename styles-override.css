@@ -1,0 +1,38 @@
+/* styles-override.css
+   Purpose: Mask Logo.png (remove black box) and restore header banner color
+*/
+
+/* Restore header banner to black (site primary ink) */
+.site-header{background:var(--ink) !important; color:#fff !important}
+.site-header .desktop-nav a{color:#bfc6c6}
+.site-header .desktop-nav a:hover,.site-header .desktop-nav .active{color:#fff;border-color:var(--red)}
+.site-header .brand{color:inherit}
+
+/* Extra-specific fallback to override other stylesheets or inline rules */
+html body header.site-header, body > header.site-header, .header-inner > .site-header {
+  background: var(--ink) !important;
+  color: #fff !important;
+}
+
+/* Hide the raw <img> and render a masked version from the parent */
+.site-header .brand .brand-logo,
+.auth-brand .brand-logo,
+.site-footer .brand-logo{visibility:hidden}
+
+.brand::before,
+.auth-brand::before{
+  content: '';
+  display: inline-block;
+  width: 104px;
+  height: 78px;
+  background-color: currentColor; /* use parent color; background outside mask remains transparent */
+  -webkit-mask-image: url('thumbnail.png');
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-image: url('thumbnail.png');
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  vertical-align: middle;
+}
