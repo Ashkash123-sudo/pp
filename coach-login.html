@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Coach Login | Panther Press</title>
+  <link rel="icon" type="image/png" href="thumbnail.png">
+  <link rel="stylesheet" href="auth.css">
+  <link rel="stylesheet" href="styles-override.css">
+  <style>
+    .auth-card .hint{font-size:12px;color:#747b7b;line-height:1.5;margin-top:6px}
+    .auth-card .field-note{font:500 11px var(--body);text-transform:none;letter-spacing:0;color:#747b7b}
+    .code-callout{background:#fff;border:1px dashed var(--red);padding:14px;margin-top:14px;font:700 15px var(--display);letter-spacing:1px;word-break:break-all}
+    .message.ok{color:#28633e}
+  </style>
+</head>
+<body>
+  <main class="auth-shell">
+    <a class="auth-brand" href="index.html"><img class="brand-logo" src="thumbnail.png" alt="Panther Press"><span><strong>PANTHER</strong><small>PRESS / CFHS ATHLETICS</small></span></a>
+    <section class="auth-card">
+      <p class="eyebrow">PANTHER PRESS · COACH PORTAL</p>
+      <h1>Coach login</h1>
+      <p>Sign in to manage your team's roster, schedule, player photos, and announcements. You need a coach authorization code from an athletic administrator.</p>
+      <form id="coachLoginForm">
+        <label>Username<input id="clUsername" name="username" required autocomplete="username" placeholder="e.g. jmartin"></label>
+        <label>School email<input id="clEmail" name="email" type="email" required autocomplete="email" placeholder="you@carolinaforest.edu"></label>
+        <label>Password<input id="clPassword" name="password" type="password" minlength="6" required autocomplete="current-password" placeholder="Set on first login, then reuse">
+          <span class="field-note">First time signing in? Choose your password now.</span>
+        </label>
+        <label>Coach authorization code<input id="clCode" name="code" required placeholder="CFHS-COACH-XXXXXX">
+          <span class="field-note">Provided by an athletic administrator.</span>
+        </label>
+        <button class="auth-button" type="submit">Sign in</button>
+      </form>
+      <p id="coachLoginMessage" class="message" role="status" aria-live="polite"></p>
+      <div class="auth-links">
+        <a href="auth.html">Fan sign in</a>
+        <a href="admin-login.html">Admin login</a>
+        <a href="index.html">Continue as guest</a>
+      </div>
+    </section>
+  </main>
+  <script src="auth-utils.js"></script>
+  <script src="coach-auth.js"></script>
+  <script src="cursor.js"></script>
+</body>
+</html>
